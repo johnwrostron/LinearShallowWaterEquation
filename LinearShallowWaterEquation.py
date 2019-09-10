@@ -89,7 +89,8 @@ def main(nt):
 
 
 # Execute the code
-nt1, nt2, nt3 = 2, 3, 4
+nt0 = 0
+nt1, nt2, nt3 = nt0, nt0+3, nt0+6
 x1, u1, h1 = main(nt=nt1)
 x2, u2, h2 = main(nt=nt2)
 x3, u3, h3 = main(nt=nt3)
