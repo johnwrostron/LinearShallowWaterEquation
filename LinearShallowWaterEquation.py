@@ -4,26 +4,67 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+def analytical_u(x,t):
 
-def initialSine(x, ncycles=1.0):
 
-    return np.sin(2.*np.pi*x*ncycles)    
+    a = initialBell(x + t)
+    b = initialBell(x - t)
+    
+    return -0.5*(a - b)
+
+
+
+def analytical_h(x,t):
+
+    a = initialBell(x + t)
+    b = initialBell(x - t)
+
+    return 0.5*(a + b)
 
 
 
 # Function defining the initial analytic solution
 def initialBell(x):
 
-    return np.where(x%1. < 0.5, np.power(np.sin(2*x*np.pi), 2), 0)
+    return np.where(x%1. < 0.5, 0.01*np.power(np.sin(2*x*np.pi), 2), 0)
 
 
 
-def update_line(num, x, data, line):
-    line.set_data(x, data[:, num])
-    return line,
+def plot_uandh(x, u, h, u_ana, h_ana, n, dt, dx):
+
+    plt.figure(figsize=(12,8))
+
+    plt.subplot(*(2,1,1))
+
+    plt.plot(x, u, label="u", color="k")
+    plt.plot(x, u_ana, label="u [analytical]", color="r")
+
+    plt.legend(loc="upper right")
+    plt.ylabel("u [m/s]")
+    plt.axhline(0, color='b', zorder=-1, lw=0.5)
+    plt.ylim(-0.01, 0.01)
 
 
-def main(nt):
+    plt.subplot(*(2,1,2))
+
+    plt.plot(x, h, label="u", color="k")
+    plt.plot(x, h_ana, label="u [analytical]", color="r")
+
+    plt.legend(loc="upper right")
+    plt.ylabel("h [m]")
+    plt.axhline(0, color='b', zorder=-1, lw=0.5)
+    plt.ylim(-0.01, 0.01)
+
+    plt.suptitle("time = {0:.3f}".format(n*dt), size=20)
+    plt.subplots_adjust(top=0.92)
+
+    plt.savefig("plots/uh_c{0:.2f}_dx{1:.3f}_dt{2:.3f}_t{3:.3f}.png".format(dt/dx, dx,dt,n*dt), dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+
+
+def main(nt, plot_t=[1,10,100], dx=0.025, dt=0.001):
 
     # Setup constants:
     #   g: gravity
@@ -31,7 +72,8 @@ def main(nt):
     #   H: height around which wave oscillates?
     H = 1.0
     #  nx: number of spatial points
-    nx = 100
+    #nx = 40
+    nx = int(1 / dx)
     #  dt: timestep
     dt = 0.001
     # Number of time steps
@@ -39,11 +81,13 @@ def main(nt):
 
     # Setup spatial, u and h arrays
     x = np.linspace(0., 1.0, nx+1)
-    dx = 1.0 / nx
+    #dx = 1.0 / nx
 
-    h = initialBell(x-0.1)
-    u = np.zeros_like(h)
+    h0 = initialBell(x)
+    h = h0.copy()
 
+    u0 = np.zeros_like(h)
+    u = u0.copy()
 
     
     # Define New and Old versions of u and h
@@ -52,8 +96,11 @@ def main(nt):
 
     #plt.figure(figsize=(12,12))
     # Loop over time...
+    u_rmse_arr, h_rmse_arr, t_arr = [], [], []
     for n in range(1,nt):
         
+        t_arr.append(n*dt)
+
         # Loop over space
         for j in range(1,nx):
             # Calculate the new value for u
@@ -71,57 +118,59 @@ def main(nt):
         u = uNew.copy()
         h = hNew.copy()
 
-    
+        # Solve analytic solution for this time
+        u_ana = analytical_u(x, dt*n)
+        h_ana = analytical_h(x, dt*n)
 
-    #data = np.random.rand(4, 25)
+        # Find mean squared error...
+        u_rmse_arr.append(np.sqrt(np.mean((u - u_ana)**2.0)))
+        h_rmse_arr.append(np.sqrt(np.mean((h - h_ana)**2.0)))
 
-    # Initialise line
-    #fig1 = plt.figure()
-    #l, = plt.plot([], [], 'r-')
-    #plt.xlim(0, 1)
-    #plt.ylim(0, 1)
-    #plt.xlabel('x')
-    #plt.title('test')
-    #line_ani = animation.FuncAnimation(fig1, update_line, 25, fargs=(x,data, l),
-    #                               interval=50, blit=True)  
+        if n in plot_t+[nt-1]:
+            plot_uandh(x, u, h, u_ana, h_ana, n, dt, dx)
+
 
     # Derived quantities
     t = dt * nt
 
+    u_rmse_arr = np.array(u_rmse_arr)
+    h_rmse_arr = np.array(h_rmse_arr)
+    t_arr = np.array(t_arr)
 
-    return x, u, h
+
+    return u_rmse_arr, h_rmse_arr, t_arr
  
 
 
-# Execute the code
-nt0 = 0
-nt1, nt2, nt3 = nt0, nt0+5, nt0+100
-x1, u1, h1 = main(nt=nt1)
-x2, u2, h2 = main(nt=nt2)
-x3, u3, h3 = main(nt=nt3)
 
 
-# Plot the solution... Is there an analytic equation?
-plt.figure(figsize=(12,12))
+
+dx = 0.025
+dt = 0.001
+
+
+plot_t = list(range(0,200,10)) + list(range(0,2000,100))
+u_rmse, h_rmse, t_arr = main(nt=2000, plot_t=plot_t, dx=dx, dt=dt)
+
+plt.figure(figsize=(12,8))
 
 plt.subplot(*(2,1,1))
-plt.plot(x1, u1, 'k', label="u; nt={0:d}".format(nt1), color='r', lw=2)
-plt.plot(x2, u2, 'k', label="u; nt={0:d}".format(nt2), color='0.75')
-plt.plot(x3, u3, 'k', label="u; nt={0:d}".format(nt3), color='0.25')
-plt.legend(loc="best")
-plt.ylabel("u [m/s?]")
-plt.axhline(0, linestyle=':', color='k', zorder=-1)
+
+plt.plot(t_arr, u_rmse, label="u RMSE", color="k")
+
+plt.legend(loc="upper right")
+plt.ylabel("RMSE")
 
 
 plt.subplot(*(2,1,2))
-plt.plot(x1, h1, 'k', label="h; nt={0:d}".format(nt1), color='r', lw=2)
-plt.plot(x2, h2, 'k', label="h; nt={0:d}".format(nt2), color='0.75')
-plt.plot(x3, h3, 'k', label="h; nt={0:d}".format(nt3), color='0.25')
-plt.legend(loc="best")
-plt.ylabel("h [m?]")
-plt.axhline(0, linestyle=':', color='k', zorder=-1)
 
-plt.show()
+plt.plot(t_arr, h_rmse, label="h RMSE", color="k")
+
+plt.legend(loc="upper right")
+plt.ylabel("RMSE")
+
+plt.savefig("plots/RMSE_dx{0:.3f}_dt{1:.3f}.png".format(dx,dt), dpi=300, bbox_inches="tight")
+plt.close()
 
 
 
